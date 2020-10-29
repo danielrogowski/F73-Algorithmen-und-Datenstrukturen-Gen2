@@ -21,7 +21,7 @@ public class GraphScanStack<V> implements GraphScanStructure<V> {
 	}
 
 	@Override
-	public boolean empty() {
+	public boolean isEmpty() {
 		return this.stack.empty();
 	}
 
