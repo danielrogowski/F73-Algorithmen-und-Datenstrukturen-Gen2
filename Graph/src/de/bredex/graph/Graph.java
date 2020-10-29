@@ -1,6 +1,8 @@
 package de.bredex.graph;
 
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -11,20 +13,19 @@ import java.util.Set;
  * 
  * @author daniel
  *
- * @param <V> To ensure the proper working of this Graph, V needs to implement
- *            custom hashCode and equals methods.
+ * @param <V> To ensure the proper working of this Graph, type V needs to
+ *            implement custom hashCode and equals methods in accordance to the
+ *            hashCode-equals-contracts. Please refer to
+ *            {@link java.lang.Object#equals(java.lang.Object)} and
+ *            {@link java.lang.Object#hashCode()} for further information.
+ *            <p>
+ *            To enable deep cloning V additionally needs to publicly override
+ *            the method {@link java.lang.Object#clone()} and implement the
+ *            {@link java.lang.Cloneable} interface.
  */
-public class Graph<V> {
-	private final Map<V, Set<V>> adjacencyMap;
+public class Graph<V> implements Cloneable {
+	private final Map<V, Set<V>> adjacencyMap = new HashMap<>();
 	private int nrEdges = -1;
-
-	public Graph() {
-		this.adjacencyMap = new HashMap<>();
-	}
-
-	public Graph(final Map<V, Set<V>> adjacencyMap) {
-		this.adjacencyMap = adjacencyMap;
-	}
 
 	public int getNrVertices() {
 		return this.adjacencyMap.size();
@@ -148,6 +149,80 @@ public class Graph<V> {
 			}
 		}
 
+		return result;
+	}
+
+	@Override
+	public Graph<V> clone() {
+		final Graph<V> graphClone = new Graph<>();
+		
+		final Map<V, V> mapUnclonedToCloned = new HashMap<>();
+		
+		this.adjacencyMap.keySet().forEach(v -> mapUnclonedToCloned.put(v, this.cloneV(v)));
+
+		this.adjacencyMap.forEach((v, neighbors) -> {
+			final HashSet<V> neighborsClone = new HashSet<>();
+			graphClone.adjacencyMap.put(mapUnclonedToCloned.get(v), neighborsClone);
+			neighbors.forEach(w -> {
+				neighborsClone.add(mapUnclonedToCloned.get(w));
+			});
+		});
+
+		return graphClone;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((adjacencyMap == null) ? 0 : adjacencyMap.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Graph<?> other = (Graph<?>) obj;
+		if (adjacencyMap == null) {
+			if (other.adjacencyMap != null)
+				return false;
+		} else if (!adjacencyMap.equals(other.adjacencyMap))
+			return false;
+		return true;
+	}
+
+	/**
+	 * Clone deep, if possible, otherwise shallow
+	 * 
+	 * @param original
+	 * @return
+	 */
+	private V cloneV(final V original) {
+		V result = original;
+		if (original instanceof Cloneable) {
+			try {
+				Method cloneM = original.getClass().getMethod("clone", (Class<?>) null);
+				try {
+					Object o = cloneM.invoke(original, (Object[]) null);
+					if (o.getClass() == original.getClass()) {
+						@SuppressWarnings("unchecked")
+						final V v = (V) o;
+						result = v;
+					}
+				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+					System.out.println("Method clone couldn't be invoked: " + e.getMessage());
+					e.printStackTrace(System.out);
+				}
+			} catch (NoSuchMethodException | SecurityException e) {
+				System.out.println("Method clone can't be found / invoked on vertex: " + e.getMessage());
+				e.printStackTrace(System.err);
+			}
+		}
 		return result;
 	}
 
